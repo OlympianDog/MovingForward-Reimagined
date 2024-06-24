@@ -61,6 +61,11 @@ public class JournalManager : MonoBehaviour
 		BackButton.onClick.AddListener(BackButtonHandler);
 		UpdateJournalTitle();
 		UpdateJournalDate();
+
+		DisclaimerPopUpController disclaimer = PopUpManager.instance.ShowDisclaimer();
+		// disclaimer that appears when you first open the journal
+		// it's a disclaimer that says that we don't read your journal entries and that they're stored locally
+		disclaimer.disclaimer = "We DO NOT read your journal entries. They are stored LOCALLY on your device.";
 	}
 
 	void LoadJournal()
@@ -191,6 +196,7 @@ public class JournalManager : MonoBehaviour
 		JournalSaveData data = new JournalSaveData(journalSave);
 		SaveSystem.Save(saveFileName, data);
 		Debug.Log("Journal saved.");
+		AffirmationManager.instance.ScheduleRandomAffirmation();
 	}
 
 	void ResetJournalForm()
@@ -210,6 +216,7 @@ public class JournalManager : MonoBehaviour
 		newEntry.entryIsAnonymous = true;
 
 		journalSave.AddEntry(newEntry);
+		UpdateStatistics(newEntry);
 		Debug.Log("Journal Entry #" + entryNumber + " added to the Journal.");
 
 		StartCoroutine(SendPaperAirplane());
@@ -219,6 +226,8 @@ public class JournalManager : MonoBehaviour
 	void UpdateChoreManager()
 	{
 		Chore chore = ChoresManager.instance.GetActiveChore();
+
+		if (chore == null) return;
 
 		if (chore.dailyChoreType == DailyChoreType.JournalEntry)
 		{
@@ -233,7 +242,12 @@ public class JournalManager : MonoBehaviour
 				ChoresManager.instance.CompleteChore(chore);
 			}
 		}
+	}
 
+	void UpdateStatistics(JournalEntry entry)
+	{
+		JournalCompletedEvent completedEvent = new JournalCompletedEvent(entry.entryTitle, entry.entryId);
+		Aggregator.instance.Publish(completedEvent);
 	}
 
 	IEnumerator SendPaperAirplane()

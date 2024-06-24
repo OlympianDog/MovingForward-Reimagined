@@ -39,6 +39,7 @@ public class ChoresManager : MonoBehaviour
 	{
 		if (choresSave.chores.Count == 0 && choresSave.completedChores.Count == 0)
 		{
+			Debug.Log("No chores found, generating new chores");
 			GenerateDailyChores();
 		}
 	}
@@ -64,17 +65,16 @@ public class ChoresManager : MonoBehaviour
 
 		if (thisLifeCycle == null)
 		{
-			if (choresSave.GetDate() != System.DateTime.Now.ToString("dd/MM/yyyy"))
-			{
-				GenerateDailyChores();
-			}
-
+			Debug.Log("lifecycle not found. Generating New Tasks");
+			GenerateDailyChores();
 			CreateNewLifeCycle();
+			SendNotification();
 			return;
 		}
 
 		if (thisLifeCycle.Envoke)
 		{
+			Debug.Log("Lifecycle Finished Timer. Generating New Tasks");
 			LifeCycleManager.instance.EnvokeLifeCycleItem("DailyChore");
 			GenerateDailyChores();
 			SendNotification();
@@ -93,7 +93,7 @@ public class ChoresManager : MonoBehaviour
 		lifeCycleItem.name = "DailyChore";
 		lifeCycleItem.isRepeatable = true;
 
-		lifeCycleItem.startTime = new System.DateTime(System.DateTime.Now.Year, System.DateTime.Now.Month, System.DateTime.Now.Day, 8, 0, 0);
+		lifeCycleItem.startTime = new System.DateTime(System.DateTime.Now.Year, System.DateTime.Now.Month, System.DateTime.Now.Day + 1, 8, 0, 0);
 		lifeCycleItem.maxRepeatCount = -1;
 		lifeCycleItem.repeatType = LifeCycleRepeatType.Daily;
 
@@ -107,8 +107,6 @@ public class ChoresManager : MonoBehaviour
 
 		List<Chore> dailyChores = new List<Chore>();
 		List<Chores> mandatoryChores = new List<Chores>();
-
-
 
 		for (int i = 0; i < dailyChoresObject.chores.Count; i++)
 		{
@@ -138,7 +136,7 @@ public class ChoresManager : MonoBehaviour
 		{
 			int randomChore = Random.Range(0, mandatoryChores.Count);
 
-			while (CheckIfChoreIsAlreadyInTheList(mandatoryChores[randomChore], dailyChores))
+			while (CheckIfChoreIsAlreadyInTheList(mandatoryChores[randomChore], dailyChores) && CheckIfChoreIsYesterdayChore(mandatoryChores[randomChore]))
 			{
 				randomChore = Random.Range(0, mandatoryChores.Count);
 			}
@@ -149,13 +147,16 @@ public class ChoresManager : MonoBehaviour
 			half--;
 		}
 
+		choresSave.completedChores.Clear();
+		choresSave.chores.Clear();
+
 		return dailyChores;
 	}
 
 	void GenerateDailyChores()
 	{
-		choresSave.chores.Clear();
-		choresSave.completedChores.Clear();
+		
+		TicketAccess.ResetAllTickts();
 
 		int choreCount = dailyChoreCount;
 
@@ -203,11 +204,25 @@ public class ChoresManager : MonoBehaviour
 		return;
 	}
 
+	// 
 	public bool CheckIfChoreIsAlreadyInTheList(Chores chores, List<Chore> alreadyChores)
 	{
 		foreach (Chore chore in alreadyChores)
 		{
 			if (chore.choreName == chores.name)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	public bool CheckIfChoreIsYesterdayChore(Chores _chore)
+	{
+		foreach (Chore chore in choresSave.chores)
+		{
+			if (chore.choreName == _chore.name)
 			{
 				return true;
 			}
@@ -225,7 +240,8 @@ public class ChoresManager : MonoBehaviour
 			compensation,
 			chore.minScore,
 			chore.room,
-			chore.type
+			chore.type,
+			chore.isMandatory
 		);
 		return pickedChore;
 	}
@@ -239,7 +255,8 @@ public class ChoresManager : MonoBehaviour
 			compensation,
 			chore.minScore,
 			chore.room,
-			chore.type
+			chore.type,
+			chore.isMandatory
 		);
 		return pickedChore;
 	}
@@ -262,8 +279,10 @@ public class ChoresManager : MonoBehaviour
 		OnScreenNotificationManager.instance.CreateNotification("Chore completed!", OnScreenNotificationType.Sucess);
 		OnScreenNotificationManager.instance.CreateNotification("You earned " + _chore.choreComponensation + " coins!", OnScreenNotificationType.Info);
 		ProfileManager.instance.AddMoney(_chore.choreComponensation);
+		Aggregator.instance.Publish(new ChoreCompletedEvent(_chore));
 		choresSave.CompleteChore(_chore);
 		AudioManager.instance.PlaySFX("ChoreCompleteSfx");
+		activeChore = null;
 		SaveDailyChores();
 	}
 
@@ -298,7 +317,6 @@ public class ChoresManager : MonoBehaviour
 		if (activeChore.dailyChoreType == _type)
 		{
 			CompleteChore(activeChore);
-			activeChore = null;
 		}
 		else
 		{

@@ -353,7 +353,7 @@ public class NumberLocationGame : MonoBehaviour
 	{
 		Chore chore = ChoresManager.instance.GetActiveChore();
 
-		if (chore.dailyChoreType == DailyChoreType.NumberPlacement)
+		if (chore != null && chore.dailyChoreType == DailyChoreType.NumberPlacement)
 		{
 			ChoresManager.instance.CompleteChore(chore);
 		}
@@ -516,6 +516,7 @@ public class NumberLocationGame : MonoBehaviour
 		yield return new WaitForSeconds(1);
 		UpdateStatistics();
 		CompensatePlayer();
+		AffirmationManager.instance.ScheduleRandomAffirmation();
 
 		TicketAccess.RemoveOneFromTicket("NumberLocation");
 		int ticketCount = TicketAccess.GetTicketCount("NumberLocation");

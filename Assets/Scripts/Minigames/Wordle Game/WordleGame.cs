@@ -330,6 +330,7 @@ public class WordleGame : MonoBehaviour
 		yield return new WaitForSeconds(1f);
 		UpdateStatistics();
 		CompensatePlayer();
+		AffirmationManager.instance.ScheduleRandomAffirmation();
 
 		TicketAccess.RemoveOneFromTicket("Wordle");
 		int ticketCount = TicketAccess.GetTicketCount("Wordle");
@@ -382,7 +383,7 @@ public class WordleGame : MonoBehaviour
 	{
 		Chore chore = ChoresManager.instance.GetActiveChore();
 
-		if (chore.dailyChoreType == DailyChoreType.Wordle)
+		if (chore != null && chore.dailyChoreType == DailyChoreType.Wordle)
 		{
 			ChoresManager.instance.CompleteChore(chore);
 		}

@@ -24,6 +24,8 @@ public class DustMeOffGame : MonoBehaviour
 	public int TotalSeconds = 60;
 	public float currentTimer = 1f;
 
+	public DustMeOffLivesManager dustMeOffLivesManager;
+
 	private bool isGameRunning = false;
 
 	private float spawnRateNegative = 0.05f;
@@ -31,9 +33,14 @@ public class DustMeOffGame : MonoBehaviour
 
 	private List<FurnitureItem> spawnedFurnitureItems = new List<FurnitureItem>();
 
+	void Start()
+	{
+		
+	}
+
 	void Update()
 	{
-		pointsText.text = TotalPoints.ToString("F0");
+		pointsText.text = NumberFormatter.FormatNumberWithThousandsSeparator(TotalPoints);
 		timerText.text = TotalSeconds.ToString("F0") + "s";
 
 		if (!isGameRunning) return;
@@ -51,6 +58,7 @@ public class DustMeOffGame : MonoBehaviour
 				UpdateChoreManager();
 				UpdateStatistics();
 				ShowWinLosePanel();
+				// AffirmationManager.instance.ScheduleRandomAffirmation();
 			}
 			currentTimer = 1f;
 		}
@@ -59,6 +67,11 @@ public class DustMeOffGame : MonoBehaviour
 
 	void UpdateStatistics()
 	{
+		if (TotalPoints == 0 || dustMeOffLivesManager.lives == 0)
+		{
+			return;
+		}
+
 		DustMeOffCompletedEvent dustMeOffCompletedEvent = new DustMeOffCompletedEvent(
 			"Won Dust Me Off Game",
 			(int)TotalPoints
@@ -69,13 +82,17 @@ public class DustMeOffGame : MonoBehaviour
 
 	void UpdateChoreManager()
 	{
-		if (TotalPoints <= 0)
+		if (TotalPoints == 0 || dustMeOffLivesManager.lives == 0)
+		{
+			return;
+		}
+
+		if (TotalPoints <= 0 && dustMeOffLivesManager.lives != 0)
 		{
 			ChoresManager.instance.RemoveChore();
 		}
 
 		Chore chore = ChoresManager.instance.GetActiveChore();
-
 
 		if (chore != null && chore.dailyChoreType == DailyChoreType.DustMeOff)
 		{
@@ -129,7 +146,7 @@ public class DustMeOffGame : MonoBehaviour
 	{
 		yield return new WaitForSeconds(2);
 		DustMeOffWinLosePanel winLosePanel = winLosePanelGameObject.GetComponent<DustMeOffWinLosePanel>();
-		winLosePanel.isWin = TotalPoints == 0 ? false : true;
+		winLosePanel.isWin = TotalPoints == 0 || dustMeOffLivesManager.lives == 0 ? false : true;
 		winLosePanel.score = (int)TotalPoints;
 		winLosePanel.highscore = (int)HighScoreStorage.GetHighScore("DustMeOffHighScore");
 		winLosePanelGameObject.SetActive(true);
@@ -147,9 +164,15 @@ public class DustMeOffGame : MonoBehaviour
 	public void UncleanedFurniture(Vector3 position, float points)
 	{
 		Debug.Log("Uncleaned Furniture");
-		TotalPoints -= points;
+		dustMeOffLivesManager.lives -= 1;
+		// TotalPoints -= points;
 		SpawnPointsAfterDeath(position, -points);
 		SpawnAtScore(-points);
+
+		if (dustMeOffLivesManager.lives <= 0)
+		{
+			TotalSeconds = 1;
+		}
 	}
 
 	public void SpawnPointsAfterDeath(Vector3 position, float points)
@@ -160,8 +183,8 @@ public class DustMeOffGame : MonoBehaviour
 
 	public void SpawnAtScore(float points)
 	{
-		GameObject pointsAfterDeath = Instantiate(pointsAtScore, scoreLocation.transform.position, Quaternion.identity);
-		pointsAfterDeath.GetComponent<PointsAfterDeath>().points = points;
+		// GameObject pointsAfterDeath = Instantiate(pointsAtScore, scoreLocation.transform.position, Quaternion.identity);
+		// pointsAfterDeath.GetComponent<PointsAfterDeath>().points = points;
 	}
 
 	public void AddFurnitureItem(FurnitureItem furnitureItem)
@@ -201,14 +224,22 @@ public class DustMeOffGame : MonoBehaviour
 
 	public void NegateSpawnRate()
 	{
-		// if the TotalSeconds is less than 30, then the spawn rate will be decreased by 0.1f
-		if (TotalSeconds > 30)
+
+		// cap the spawn rate at 1f
+		if (spawnRate <= 1.3f)
+		{
+			spawnRate = 1.3f;
+			return;
+		}
+
+		// if the TotalSeconds is less than 15, then the spawn rate will be decreased by 0.1f
+		if (TotalSeconds > 25)
 		{
 			spawnRate -= spawnRateNegative;
 		}
 		else
 		{
-			spawnRate -= spawnRateNegative * 2;
+			spawnRate -= spawnRateNegative * 4;
 		}
 	}
 
@@ -219,6 +250,7 @@ public class DustMeOffGame : MonoBehaviour
 
 	internal void StartGame()
 	{
+		dustMeOffLivesManager.lives = 5;
 		topPanelGameObject.SetActive(true);
 		isGameRunning = true;
 		TotalFurniture = 0;
